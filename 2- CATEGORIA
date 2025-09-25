@@ -1,0 +1,141 @@
+Sub Main()
+
+    ' === Caminho do arquivo ===
+    Dim filePath As String = "C:\Users\Joahan\Desktop\Nova pasta (3)\temp.txt"
+    Dim content As String = ""
+    Dim content2 As String = ""
+
+    ' === Cria o arquivo se não existir ===
+    If Not System.IO.File.Exists(filePath) Then
+        System.IO.File.Create(filePath).Dispose()
+    End If
+
+    ' === Lê o conteúdo do arquivo ===
+    content2 = System.IO.File.ReadAllText(filePath).Trim()
+
+    ' === Referências de esquema de cores ===
+    Dim oCSchemes As ColorSchemes = ThisApplication.ColorSchemes
+    Dim currentScheme As String = ThisApplication.ActiveColorScheme.DisplayName
+    Dim schemeNamePresentation As String = GetSchemeName("Presentation")
+
+    ' === Se o esquema atual for "Presentation", aplicar configuração salva ===
+    If currentScheme = schemeNamePresentation Then
+
+        Select Case content2
+            Case "1-52737"
+                oCSchemes.Item(GetSchemeName("Dark")).Activate
+                oCSchemes.BackgroundType = 52737
+            Case "2-52737"
+                oCSchemes.Item(GetSchemeName("Deep Blue")).Activate
+                oCSchemes.BackgroundType = 52737
+            Case "3-52737"
+                oCSchemes.Item(GetSchemeName("Forest")).Activate
+                oCSchemes.BackgroundType = 52737
+            Case "4-52737"
+                oCSchemes.Item(GetSchemeName("High Contrast")).Activate
+                oCSchemes.BackgroundType = 52737
+            Case "5-52737"
+                oCSchemes.Item(GetSchemeName("Light")).Activate
+                oCSchemes.BackgroundType = 52737
+            Case "6-52737"
+                oCSchemes.Item(GetSchemeName("Millennium")).Activate
+                oCSchemes.BackgroundType = 52737
+            Case "8-52737"
+                oCSchemes.Item(GetSchemeName("Sky")).Activate
+                oCSchemes.BackgroundType = 52737
+            Case "9-52737"
+                oCSchemes.Item(GetSchemeName("Winter Day")).Activate
+                oCSchemes.BackgroundType = 52737
+            Case "10-52737"
+                oCSchemes.Item(GetSchemeName("Winter Night")).Activate
+                oCSchemes.BackgroundType = 52737
+            Case "11-52737"
+                oCSchemes.Item(GetSchemeName("Wonderland")).Activate
+                oCSchemes.BackgroundType = 52737
+            Case "1-52738"
+                oCSchemes.Item(GetSchemeName("Dark")).Activate
+                oCSchemes.BackgroundType = 52738
+            Case "2-52738"
+                oCSchemes.Item(GetSchemeName("Deep Blue")).Activate
+                oCSchemes.BackgroundType = 52738
+            Case "3-52738"
+                oCSchemes.Item(GetSchemeName("Forest")).Activate
+                oCSchemes.BackgroundType = 52738
+            Case "4-52738"
+                oCSchemes.Item(GetSchemeName("High Contrast")).Activate
+                oCSchemes.BackgroundType = 52738
+            Case "5-52738"
+                oCSchemes.Item(GetSchemeName("Light")).Activate
+                oCSchemes.BackgroundType = 52738
+            Case "6-52738"
+                oCSchemes.Item(GetSchemeName("Millennium")).Activate
+                oCSchemes.BackgroundType = 52738
+            Case "8-52738"
+                oCSchemes.Item(GetSchemeName("Sky")).Activate
+                oCSchemes.BackgroundType = 52738
+            Case "9-52738"
+                oCSchemes.Item(GetSchemeName("Winter Day")).Activate
+                oCSchemes.BackgroundType = 52738
+            Case "10-52738"
+                oCSchemes.Item(GetSchemeName("Winter Night")).Activate
+                oCSchemes.BackgroundType = 52738
+            Case "11-52738"
+                oCSchemes.Item(GetSchemeName("Wonderland")).Activate
+                oCSchemes.BackgroundType = 52738
+        End Select
+
+    Else
+        ' === Salva o esquema atual no arquivo ===
+        Dim currentBGType As String = oCSchemes.BackgroundType.ToString()
+        Dim schemeIndex As String = ""
+
+        If currentScheme = GetSchemeName("Dark") Then schemeIndex = "1"
+        If currentScheme = GetSchemeName("Deep Blue") Then schemeIndex = "2"
+        If currentScheme = GetSchemeName("Forest") Then schemeIndex = "3"
+        If currentScheme = GetSchemeName("High Contrast") Then schemeIndex = "4"
+        If currentScheme = GetSchemeName("Light") Then schemeIndex = "5"
+        If currentScheme = GetSchemeName("Millennium") Then schemeIndex = "6"
+        If currentScheme = GetSchemeName("Sky") Then schemeIndex = "8"
+        If currentScheme = GetSchemeName("Winter Day") Then schemeIndex = "9"
+        If currentScheme = GetSchemeName("Winter Night") Then schemeIndex = "10"
+        If currentScheme = GetSchemeName("Wonderland") Then schemeIndex = "11"
+
+        If schemeIndex <> "" Then
+            content = schemeIndex & "-" & currentBGType
+            Try
+                System.IO.File.WriteAllText(filePath, content)
+            Catch ex As Exception
+                MessageBox.Show("Erro ao escrever no arquivo: " & ex.Message)
+            End Try
+        End If
+
+        ' === Ativa o modo "Presentation" ===
+        oCSchemes.Item(schemeNamePresentation).Activate
+        oCSchemes.BackgroundType = 52737
+    End If
+
+End Sub
+
+' === Função auxiliar: Traduzir nome do esquema para o idioma atual ===
+Function GetSchemeName(schemeKey As String) As String
+    Dim locale As String = ThisApplication.Locale
+    If locale = "pt-BR" Then
+        Select Case schemeKey
+            Case "Presentation": Return "Apresentação"
+            Case "Dark": Return "Escuro"
+            Case "Deep Blue": Return "Azul Escuro"
+            Case "Forest": Return "Floresta"
+            Case "High Contrast": Return "Alto Contraste"
+            Case "Light": Return "Claro"
+            Case "Millennium": Return "Milênio"
+            Case "Sky": Return "Céu"
+            Case "Winter Day": Return "Dia de Inverno"
+            Case "Winter Night": Return "Noite de Inverno"
+            Case "Wonderland": Return "Terra das Maravilhas"
+        End Select
+    Else
+        Return schemeKey
+    End If
+End Function
+
+

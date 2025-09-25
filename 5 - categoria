@@ -1,0 +1,224 @@
+' === Verifica se o documento ativo é uma montagem ===
+Sub main ()
+If ThisApplication.ActiveDocumentType <> DocumentTypeEnum.kAssemblyDocumentObject Then
+    MessageBox.Show("Abra uma montagem (.iam) antes de rodar esta regra.", "Erro")
+    Return
+End If
+
+Dim oAsmDoc As AssemblyDocument = ThisApplication.ActiveDocument
+Dim oCompOccs As ComponentOccurrences = oAsmDoc.ComponentDefinition.Occurrences
+
+' === Obter documentos únicos dos componentes ===
+Dim compDocs As New Dictionary(Of String, Document)
+For Each occ As ComponentOccurrence In oCompOccs.AllLeafOccurrences
+    Try
+        Dim path As String = occ.Definition.Document.FullFileName
+        If Not compDocs.ContainsKey(path) Then
+            compDocs.Add(path, occ.Definition.Document)
+        End If
+    Catch
+        ' Ignorar componentes não resolvidos
+    End Try
+Next
+
+' === Criar formulário de seleção ===
+Dim frmSelecao As New System.Windows.Forms.Form With {
+    .Text = "Selecione os modelos para editar",
+    .Width = 600,
+    .Height = 550,
+    .StartPosition = FormStartPosition.CenterScreen,
+    .FormBorderStyle = FormBorderStyle.Sizable
+}
+
+Dim lblInstrucao As New System.Windows.Forms.Label With {
+    .Text = "Digite o prefixo e clique em 'Filtrar':",
+    .Top = 10,
+    .Left = 10,
+    .Width = 560
+}
+frmSelecao.Controls.Add(lblInstrucao)
+
+Dim txtPrefixo As New System.Windows.Forms.TextBox With {
+    .Top = 35,
+    .Left = 10,
+    .Width = 400
+}
+frmSelecao.Controls.Add(txtPrefixo)
+
+Dim btnFiltrar As New System.Windows.Forms.Button With {
+    .Text = "Filtrar",
+    .Top = 33,
+    .Left = 420,
+    .Width = 150
+}
+frmSelecao.Controls.Add(btnFiltrar)
+
+Dim lstModelos As New System.Windows.Forms.CheckedListBox With {
+    .Top = 70,
+    .Left = 10,
+    .Width = 560,
+    .Height = 320,
+    .CheckOnClick = True,
+    .Anchor = AnchorStyles.Top Or AnchorStyles.Bottom Or AnchorStyles.Left Or AnchorStyles.Right
+}
+frmSelecao.Controls.Add(lstModelos)
+
+Dim btnSelecionarTodos As New System.Windows.Forms.Button With {
+    .Text = "Selecionar Todos",
+    .Top = 400,
+    .Left = 10,
+    .Width = 180,
+    .Anchor = AnchorStyles.Left Or AnchorStyles.Bottom
+}
+frmSelecao.Controls.Add(btnSelecionarTodos)
+
+Dim btnDesmarcarTodos As New System.Windows.Forms.Button With {
+    .Text = "Desmarcar Todos",
+    .Top = 400,
+    .Left = 200,
+    .Width = 180,
+    .Anchor = AnchorStyles.Left Or AnchorStyles.Bottom
+}
+frmSelecao.Controls.Add(btnDesmarcarTodos)
+
+Dim btnOk As New System.Windows.Forms.Button With {
+    .Text = "Confirmar",
+    .Top = 440,
+    .Left = 10,
+    .Width = 560,
+    .Height = 30,
+    .Anchor = AnchorStyles.Left Or AnchorStyles.Right Or AnchorStyles.Bottom
+}
+frmSelecao.Controls.Add(btnOk)
+
+' === Atualizar lista com filtro por prefixo ===
+Dim SubAtualizarLista As Action = Sub()
+    Dim prefixo = txtPrefixo.Text.Trim().ToLower()
+    lstModelos.Items.Clear()
+    For Each kvp In compDocs
+        Dim nomeArq = System.IO.Path.GetFileNameWithoutExtension(kvp.Key).ToLower()
+        If nomeArq.StartsWith(prefixo) Then
+            lstModelos.Items.Add(kvp.Key)
+        End If
+    Next
+End Sub
+
+AddHandler btnFiltrar.Click, Sub()
+    SubAtualizarLista()
+    If lstModelos.Items.Count = 0 Then
+        MessageBox.Show("Nenhum modelo encontrado com o prefixo '" & txtPrefixo.Text.Trim() & "'.", "Aviso")
+    End If
+End Sub
+
+AddHandler btnSelecionarTodos.Click, Sub()
+    For i As Integer = 0 To lstModelos.Items.Count - 1
+        lstModelos.SetItemChecked(i, True)
+    Next
+End Sub
+
+AddHandler btnDesmarcarTodos.Click, Sub()
+    For i As Integer = 0 To lstModelos.Items.Count - 1
+        lstModelos.SetItemChecked(i, False)
+    Next
+End Sub
+
+AddHandler btnOk.Click, Sub()
+    If lstModelos.CheckedItems.Count = 0 Then
+        MessageBox.Show("Selecione ao menos um modelo.", "Aviso")
+        Return
+    End If
+    frmSelecao.DialogResult = DialogResult.OK
+    frmSelecao.Close()
+End Sub
+
+' === Carregar lista inicial ===
+SubAtualizarLista()
+
+' === Exibir formulário ===
+If frmSelecao.ShowDialog() <> DialogResult.OK Then Return
+
+' === Obter documentos selecionados ===
+Dim modelosSelecionados As New List(Of Document)
+For Each item As String In lstModelos.CheckedItems
+    modelosSelecionados.Add(compDocs(item))
+Next
+
+' === Lista de categorias disponíveis ===
+Dim categoriasDisponiveis As New List(Of String) From {
+    "27 - CORTE LASER CH",
+"47 - CORTE LASER TB",
+"30 - SERRA FITA",
+"33 - USINAGEM - (TORNO & FRESA)",
+"28 - DOBRA",
+"38 - ELETRICA / AUTOMAÇÃO",
+"29 - MONTAGEM / SOLDA",	
+"32 - MONTAGEM FINAL",
+"42 - USINAGEM EXTERNA - POLIMEROS",
+"43 - USINAGEM EXTERNA - ALUMINIO",
+"44 - USINAGEM EXTERNA - POLICARBONATO",
+"45 - USINAGEM EXTERNA - ELETROFUSÃO",
+"46 - USINAGEM EXTERNA - INOX"
+}
+
+' === Loop para editar cada documento ===
+For Each oDoc As Document In modelosSelecionados
+
+    ' Abre o documento
+    Try
+        ThisApplication.Documents.Open(oDoc.FullFileName, True).Activate()
+    Catch ex As Exception
+        MessageBox.Show("Erro ao abrir o modelo: " & oDoc.DisplayName & vbCrLf & ex.Message)
+        Continue For
+    End Try
+
+    ' Acessa o PropertySet
+    Dim docSummaryProps As PropertySet
+    Try
+        docSummaryProps = oDoc.PropertySets.Item("Inventor Document Summary Information")
+    Catch ex As Exception
+        MessageBox.Show("Erro ao acessar propriedades de " & oDoc.DisplayName & vbCrLf & ex.Message)
+        Continue For
+    End Try
+
+    ' Chama seletor de categorias
+    Dim selecionados = MultiSelectListBox("Selecione categorias para o modelo: " & oDoc.DisplayName,
+                                          categoriasDisponiveis,
+                                          Nothing,
+                                          "Selecionar Categoria",
+                                          "Categorias")
+
+    If selecionados.Count = 0 Then
+        MessageBox.Show("Nenhuma categoria selecionada para " & oDoc.DisplayName & ". Pulando...", "Aviso")
+        Continue For
+    End If
+
+    ' Atualiza a propriedade Category
+    Try
+        Dim categoriaFinal = String.Join("; ", selecionados)
+        Dim categoryProp As Inventor.Property
+        Try
+            categoryProp = docSummaryProps.Item("Category")
+        Catch
+            categoryProp = docSummaryProps.Add("", "Category")
+        End Try
+        categoryProp.Value = categoriaFinal
+        oDoc.Save()
+        oDoc.Close(True)
+    Catch ex As Exception
+        MessageBox.Show("Erro ao salvar categoria em: " & oDoc.DisplayName & vbCrLf & ex.Message)
+    End Try
+
+Next
+End Sub
+
+' === Função de seleção múltipla ===
+Function MultiSelectListBox(Optional Instructions As String = vbNullString, Optional Items As IEnumerable = Nothing,
+Optional DefaultValue As Object = Nothing, Optional Title As String = vbNullString, Optional ListName As String = vbNullString) As IEnumerable(Of Object)
+    Using oILBD As New Autodesk.iLogic.Runtime.InputListBoxDialog(Title, ListName, Instructions, Items, DefaultValue)
+        Dim oLB As System.Windows.Forms.ListBox = oILBD.Controls.Item(0).Controls.Item(2)
+        oLB.SelectionMode = System.Windows.Forms.SelectionMode.MultiSimple
+        Dim oDlgResult As System.Windows.Forms.DialogResult = oILBD.ShowDialog()
+        Dim oSelected As IEnumerable(Of Object) = oLB.SelectedItems.Cast(Of Object)
+        Return oSelected
+    End Using
+End Function

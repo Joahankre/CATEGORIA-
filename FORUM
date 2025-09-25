@@ -1,1 +1,33 @@
 https://forums.autodesk.com/t5/inventor-forum/ilogic-naming-solid-bodies-with-dropdown-list-as-a-standard-name/m-p/7932826/highlight/true#M691065
+
+Function GetBOMRows(drawingDoc As DrawingDocument) As BOMRowsEnumerator
+    Try
+        Dim asm As AssemblyDocument = CType(refDoc, AssemblyDocument)
+        Dim bom As BOM = asm.ComponentDefinition.BOM
+        bom.StructuredViewEnabled = True
+        bom.StructuredViewFirstLevelOnly = False
+
+        For Each bomView As BOMView In bom.BOMViews
+            If BOMView.ViewType = BOMViewTypeEnum.kStructuredBOMViewType Then
+                Return BOMView.BOMRows
+            End If
+        Next
+    Catch ex As Exception
+        MessageBox.Show("Erro ao obter BOM Rows: " & ex.Message, "Erro", MessageBoxButtons.OK, MessageBoxIcon.Error)
+    End Try
+
+    Return Nothing
+End Function
+
+Sub AddBOMRowNode(row As BOMRow, parent As TreeNodeCollection, drawingDoc As DrawingDocument)
+    Try
+        ' Ignorar elementos do Content Center e estruturas não normais
+        If row.ComponentDefinitions IsNot Nothing AndAlso row.ComponentDefinitions.Count > 0 Then
+            Dim defComp = row.ComponentDefinitions.Item(1)
+            If TypeOf defComp Is PartComponentDefinition Then
+                If CType(defComp, PartComponentDefinition).IsContentMember Then Return
+            End If
+            If defComp.BOMStructure <> BOMStructureEnum.kNormalBOMStructure Then Return
+        End If
+End try 
+End sub 

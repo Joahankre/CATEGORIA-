@@ -1,4 +1,5 @@
 https://forums.autodesk.com/t5/inventor-forum/ilogic-naming-solid-bodies-with-dropdown-list-as-a-standard-name/m-p/7932826/highlight/true#M691065
+https://inventortrenches.blogspot.com/search/label/Autodesk%20Inventor%20iLogic
 
 Function GetBOMRows(drawingDoc As DrawingDocument) As BOMRowsEnumerator
     Try

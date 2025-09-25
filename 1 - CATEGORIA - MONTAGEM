@@ -140,12 +140,18 @@ For Each item As String In lstModelos.CheckedItems
     modelosSelecionados.Add(compDocs(item))
 Next
 
-' === Para cada modelo, abrir formulário de edição de propriedade ===
 For Each oDoc As Document In modelosSelecionados
-    Dim currentCategory As String = ""
 
-    ' Tenta acessar a propriedade "Category"
-    Dim docSummaryProps As PropertySet
+    ' === Abre e ativa o documento no Inventor (modo visual) ===
+    Try
+        ThisApplication.Documents.Open(oDoc.FullFileName, True).Activate()
+    Catch ex As Exception
+        MessageBox.Show("Erro ao abrir/ativar o modelo: " & oDoc.DisplayName & vbCrLf & ex.Message)
+        Continue For
+    End Try
+
+    ' === Tenta acessar o PropertySet de resumo ===
+    Dim docSummaryProps As PropertySet = Nothing
     Try
         docSummaryProps = oDoc.PropertySets.Item("Inventor Document Summary Information")
     Catch ex As Exception
@@ -153,13 +159,15 @@ For Each oDoc As Document In modelosSelecionados
         Continue For
     End Try
 
+    ' === Valor atual da propriedade Category ===
+    Dim currentCategory As String = ""
     Try
         currentCategory = docSummaryProps.Item("Category").Value.ToString()
     Catch
         currentCategory = ""
     End Try
 
-    ' Formulário para edição da categoria
+    ' === Formulário de edição ===
     Dim frm As New System.Windows.Forms.Form With {
         .Text = "Editar Categoria - " & oDoc.DisplayName,
         .Width = 500,
@@ -210,6 +218,7 @@ For Each oDoc As Document In modelosSelecionados
 
     AddHandler btnAplicar.Click, Sub()
         Try
+            ' Tenta acessar ou criar a propriedade "Category"
             Dim categoryProp As Inventor.Property
             Try
                 categoryProp = docSummaryProps.Item("Category")
@@ -217,14 +226,20 @@ For Each oDoc As Document In modelosSelecionados
                 categoryProp = docSummaryProps.Add("", "Category")
             End Try
 
+            ' Aplica novo valor
             categoryProp.Value = cboCategoria.Text
+
+            ' Salva alterações
             oDoc.Save()
+
+            MessageBox.Show("Categoria aplicada com sucesso em: " & oDoc.DisplayName, "Sucesso")
             frm.Close()
         Catch ex As Exception
-            MessageBox.Show("Erro ao aplicar no modelo '" & oDoc.DisplayName & "': " & ex.Message)
+            MessageBox.Show("Erro ao aplicar categoria em: " & oDoc.DisplayName & vbCrLf & ex.Message, "Erro")
         End Try
     End Sub
 
     frm.Controls.Add(btnAplicar)
     frm.ShowDialog()
+
 Next

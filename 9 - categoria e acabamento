@@ -1,0 +1,370 @@
+Sub Main()
+    ' Verifica se o documento ativo é uma montagem
+    If ThisApplication.ActiveDocumentType <> DocumentTypeEnum.kAssemblyDocumentObject Then
+        MessageBox.Show("Abra uma montagem (.iam) antes de rodar esta regra.", "Erro")
+        Return
+    End If
+
+    Dim oAsmDoc As AssemblyDocument = ThisApplication.ActiveDocument
+
+    ' Criar formulário principal
+    Dim frmSelecao As New System.Windows.Forms.Form With {
+        .Text = "Selecione os modelos para editar",
+        .Width = 600,
+        .Height = 800,
+        .StartPosition = FormStartPosition.CenterScreen
+    }
+
+    ' Painel principal para conter TreeView e painel de botões
+    Dim mainPanel As New System.Windows.Forms.Panel With {
+        .Dock = DockStyle.Fill
+    }
+    frmSelecao.Controls.Add(mainPanel)
+
+    ' Criar TreeView
+    Dim treeModelos As New System.Windows.Forms.TreeView With {
+        .Dock = DockStyle.Fill,
+        .CheckBoxes = True
+    }
+    mainPanel.Controls.Add(treeModelos)
+
+    ' Painel com botões de seleção (Selecionar Todos / Desselecionar Todos)
+    Dim panelBotoesSelecao As New System.Windows.Forms.Panel With {
+        .Dock = DockStyle.Bottom,
+        .Height = 40
+    }
+    mainPanel.Controls.Add(panelBotoesSelecao)
+
+    Dim btnSelecionarTodos As New System.Windows.Forms.Button With {
+        .Text = "Selecionar Todos",
+        .Width = 120,
+        .Left = 10,
+        .Top = 5
+    }
+    panelBotoesSelecao.Controls.Add(btnSelecionarTodos)
+
+    Dim btnDesselecionarTodos As New System.Windows.Forms.Button With {
+        .Text = "Desselecionar Todos",
+        .Width = 140,
+        .Left = 140,
+        .Top = 5
+    }
+    panelBotoesSelecao.Controls.Add(btnDesselecionarTodos)
+
+    ' Eventos dos botões
+    AddHandler btnSelecionarTodos.Click, Sub()
+        AlterarSelecaoTodos(treeModelos.Nodes, True)
+    End Sub
+
+    AddHandler btnDesselecionarTodos.Click, Sub()
+        AlterarSelecaoTodos(treeModelos.Nodes, False)
+    End Sub
+
+    ' Botão Confirmar
+    Dim btnOk As New System.Windows.Forms.Button With {
+        .Text = "Confirmar",
+        .Dock = DockStyle.Bottom,
+        .Height = 40
+    }
+    frmSelecao.Controls.Add(btnOk)
+
+    AddHandler btnOk.Click, Sub()
+        If Not ExisteNoMarcado(treeModelos.Nodes) Then
+            MessageBox.Show("Selecione ao menos um modelo.", "Aviso")
+            Return
+        End If
+        frmSelecao.DialogResult = DialogResult.OK
+        frmSelecao.Close()
+    End Sub
+
+    ' Preencher TreeView com a BOM
+    AtualizarArvoreBOM_Montagem(treeModelos, oAsmDoc)
+
+    ' Mostrar formulário e verificar resultado
+    If frmSelecao.ShowDialog() <> DialogResult.OK Then Return
+
+    ' Obter modelos selecionados
+    Dim modelosSelecionados As New List(Of Document)
+    ObterDocumentosSelecionados(treeModelos.Nodes, modelosSelecionados)
+
+    If modelosSelecionados.Count = 0 Then
+        MessageBox.Show("Nenhum modelo selecionado.", "Aviso")
+        Return
+    End If
+
+    ' Categorias e acabamentos disponíveis
+    Dim categoriasDisponiveis As New List(Of String) From {
+        "27 - CORTE LASER CH",
+        "47 - CORTE LASER TB",
+        "30 - SERRA FITA",
+        "33 - USINAGEM - (TORNO & FRESA)",
+        "28 - DOBRA",
+        "38 - ELETRICA / AUTOMAÇÃO",
+        "29 - MONTAGEM / SOLDA",
+        "32 - MONTAGEM FINAL",
+        "42 - USINAGEM EXTERNA - POLIMEROS",
+        "43 - USINAGEM EXTERNA - ALUMINIO",
+        "44 - USINAGEM EXTERNA - POLICARBONATO",
+        "45 - USINAGEM EXTERNA - ELETROFUSÃO",
+        "46 - USINAGEM EXTERNA - INOX"
+    }
+
+    Dim acabamentosDisponiveis As New List(Of String) From {
+        "Escovado",
+        "Treme-treme",
+        "Polido",
+        "Usinado",
+        "Decapado",
+        "Pintado",
+        "Natural",
+        "Galv. Frio",
+        "Natural / Decapado",
+        "Natural / Usinado",
+        "N/A"
+    }
+
+    ' Aplicar propriedades nos modelos selecionados
+    For Each oDoc As Document In modelosSelecionados
+        Try
+            ThisApplication.Documents.Open(oDoc.FullFileName, True).Activate()
+        Catch ex As Exception
+            MessageBox.Show("Erro ao abrir o modelo: " & oDoc.DisplayName & vbCrLf & ex.Message)
+            Continue For
+        End Try
+
+        Dim docSummaryProps As PropertySet
+        Try
+            docSummaryProps = oDoc.PropertySets.Item("Inventor Document Summary Information")
+        Catch ex As Exception
+            MessageBox.Show("Erro ao acessar propriedades de " & oDoc.DisplayName & vbCrLf & ex.Message)
+            Continue For
+        End Try
+
+        Dim categoriasSelecionadas = CustomMultiSelectListBox("Selecione categorias para o modelo: " & oDoc.DisplayName,
+                                                              categoriasDisponiveis,
+                                                              "Selecionar Categorias")
+        If categoriasSelecionadas.Count = 0 Then
+            MessageBox.Show("Nenhuma categoria selecionada para " & oDoc.DisplayName & ". Pulando...", "Aviso")
+            Continue For
+        End If
+
+        Dim acabamentosSelecionados = CustomMultiSelectListBox("Selecione acabamentos para o modelo: " & oDoc.DisplayName,
+                                                               acabamentosDisponiveis,
+                                                               "Selecionar Acabamentos")
+        If acabamentosSelecionados.Count = 0 Then
+            MessageBox.Show("Nenhum acabamento selecionado para " & oDoc.DisplayName & ". Pulando...", "Aviso")
+            Continue For
+        End If
+
+        Try
+            Dim categoriaFinal = String.Join("; ", categoriasSelecionadas)
+            Dim categoryProp As Inventor.Property
+            Try
+                categoryProp = docSummaryProps.Item("Category")
+            Catch
+                categoryProp = docSummaryProps.Add("", "Category")
+            End Try
+            categoryProp.Value = categoriaFinal
+        Catch ex As Exception
+            MessageBox.Show("Erro ao salvar categoria em: " & oDoc.DisplayName & vbCrLf & ex.Message)
+        End Try
+
+        Try
+            Dim acabamentoFinal = String.Join("; ", acabamentosSelecionados)
+            Dim keywordsProp As Inventor.Property
+            Try
+                keywordsProp = docSummaryProps.Item("Keywords")
+            Catch
+                keywordsProp = docSummaryProps.Add("", "Keywords")
+            End Try
+            keywordsProp.Value = acabamentoFinal
+        Catch ex As Exception
+            MessageBox.Show("Erro ao aplicar acabamento (Keywords) em: " & oDoc.DisplayName & vbCrLf & ex.Message)
+        End Try
+
+        oDoc.Save()
+        oDoc.Close(True)
+    Next
+End Sub
+Sub AtualizarArvoreBOM_Montagem(treeView As System.Windows.Forms.TreeView, asmDoc As AssemblyDocument)
+    treeView.Nodes.Clear()
+
+    Dim bomRows As BOMRowsEnumerator = GetBOMRowsFromAssembly(asmDoc)
+
+    If bomRows IsNot Nothing Then
+        For Each row As BOMRow In bomRows
+            AddBOMRowNode(Row, treeView.Nodes)
+        Next
+        OrdenarTreeNodes(treeView.Nodes)
+        treeView.ExpandAll()
+    Else
+        MessageBox.Show("Não foi possível obter a BOM da montagem.", "Erro", MessageBoxButtons.OK, MessageBoxIcon.Error)
+    End If
+End Sub
+
+Function GetBOMRowsFromAssembly(asmDoc As AssemblyDocument) As BOMRowsEnumerator
+    Try
+        Dim bom As BOM = asmDoc.ComponentDefinition.BOM
+        bom.StructuredViewEnabled = True
+        bom.StructuredViewFirstLevelOnly = False
+
+        For Each view As BOMView In bom.BOMViews
+            If View.ViewType = BOMViewTypeEnum.kStructuredBOMViewType Then
+                Return View.BOMRows
+            End If
+        Next
+    Catch ex As Exception
+        MessageBox.Show("Erro ao acessar a BOM da montagem: " & ex.Message)
+    End Try
+    Return Nothing
+End Function
+
+Sub AddBOMRowNode(row As BOMRow, parent As System.Windows.Forms.TreeNodeCollection)
+    Try
+        If row.ComponentDefinitions IsNot Nothing AndAlso row.ComponentDefinitions.Count > 0 Then
+            Dim def = row.ComponentDefinitions.Item(1)
+            If TypeOf def Is PartComponentDefinition AndAlso CType(def, PartComponentDefinition).IsContentMember Then Return
+            If def.BOMStructure <> BOMStructureEnum.kNormalBOMStructure Then Return
+        End If
+		        Dim docPath As String = ""
+        Dim partName As String = ""
+        Dim itemName As String = row.ItemNumber
+
+        Try
+            If row.ComponentDefinitions IsNot Nothing AndAlso row.ComponentDefinitions.Count > 0 Then
+                Dim doc = row.ComponentDefinitions.Item(1).Document
+                docPath = doc.FullFileName
+                Try
+                    partName = doc.PropertySets.Item("Design Tracking Properties").Item("Part Number").Value
+                Catch
+                End Try
+            End If
+        Catch
+        End Try
+
+        Dim labelNumber As String = If(partName <> "", partName, itemName)
+        Dim nodeText As String = $"({itemName}) {labelNumber}"
+        Dim tag = Tuple.Create(docPath, itemName, labelNumber)
+
+        Dim node As New System.Windows.Forms.TreeNode(nodeText) With {
+            .Tag = tag,
+            .Name = itemName
+        }
+        parent.Add(node)
+
+        ' Recursivamente adiciona filhos
+        If row.ChildRows IsNot Nothing AndAlso row.ChildRows.Count > 0 Then
+            For Each child As BOMRow In row.ChildRows
+                AddBOMRowNode(child, node.Nodes)
+            Next
+        End If
+
+    Catch
+        ' Ignora erros silenciosamente
+    End Try
+End Sub
+
+Sub OrdenarTreeNodes(nodes As System.Windows.Forms.TreeNodeCollection)
+    Dim tempList As New List(Of System.Windows.Forms.TreeNode)
+    For Each node As System.Windows.Forms.TreeNode In nodes
+        tempList.Add(node)
+    Next
+
+    tempList.Sort(Function(a, b) CompararHierarquia(a.Name, b.Name))
+
+    nodes.Clear()
+    For Each node As System.Windows.Forms.TreeNode In tempList
+        nodes.Add(node)
+        If node.Nodes.Count > 0 Then
+            OrdenarTreeNodes(node.Nodes)
+        End If
+    Next
+End Sub
+
+Function CompararHierarquia(a As String, b As String) As Integer
+    Dim numA As Integer = 0
+    Dim numB As Integer = 0
+    Integer.TryParse(a, numA)
+    Integer.TryParse(b, numB)
+    Return numA.CompareTo(numB)
+End Function
+Function ExisteNoMarcado(nodes As System.Windows.Forms.TreeNodeCollection) As Boolean
+    For Each node As System.Windows.Forms.TreeNode In nodes
+        If node.Checked Then Return True
+        If ExisteNoMarcado(node.Nodes) Then Return True
+    Next
+    Return False
+End Function
+
+Sub ObterDocumentosSelecionados(nodes As System.Windows.Forms.TreeNodeCollection, modelosSelecionados As List(Of Document))
+    For Each node As System.Windows.Forms.TreeNode In nodes
+        If node.Checked And node.Tag IsNot Nothing Then
+            Dim tag = CType(node.Tag, Tuple(Of String, String, String))
+            Dim docPath As String = tag.Item1
+            If Not String.IsNullOrEmpty(docPath) Then
+                Try
+                    Dim doc As Document = ThisApplication.Documents.Open(docPath, False)
+                    modelosSelecionados.Add(doc)
+                Catch
+                End Try
+            End If
+        End If
+        If node.Nodes.Count > 0 Then
+            ObterDocumentosSelecionados(node.Nodes, modelosSelecionados)
+        End If
+    Next
+End Sub
+Sub AlterarSelecaoTodos(nodes As System.Windows.Forms.TreeNodeCollection, selecionado As Boolean)
+    For Each node As System.Windows.Forms.TreeNode In nodes
+        node.Checked = selecionado
+        If node.Nodes.Count > 0 Then
+            AlterarSelecaoTodos(node.Nodes, selecionado)
+        End If
+    Next
+End Sub
+Function CustomMultiSelectListBox(prompt As String, options As List(Of String), title As String) As List(Of String)
+    Dim selected As New List(Of String)
+
+    Dim frm As New System.Windows.Forms.Form With {
+        .Text = title,
+        .Width = 400,
+        .Height = 400,
+        .StartPosition = FormStartPosition.CenterScreen
+    }
+
+    Dim lbl As New System.Windows.Forms.Label With {
+        .Text = prompt,
+        .Dock = DockStyle.Top,
+        .Height = 40
+    }
+    frm.Controls.Add(lbl)
+
+    Dim clb As New System.Windows.Forms.CheckedListBox With {
+        .Dock = DockStyle.Fill,
+        .CheckOnClick = True
+    }
+    For Each opt In options
+        clb.Items.Add(opt, False)
+    Next
+    frm.Controls.Add(clb)
+
+    Dim btnOk As New System.Windows.Forms.Button With {
+        .Text = "OK",
+        .Dock = DockStyle.Bottom,
+        .Height = 40
+    }
+    frm.Controls.Add(btnOk)
+
+    AddHandler btnOk.Click, Sub()
+        frm.DialogResult = DialogResult.OK
+        frm.Close()
+    End Sub
+
+    If frm.ShowDialog() = DialogResult.OK Then
+        For Each idx As Integer In clb.CheckedIndices
+            selected.Add(clb.Items(idx).ToString())
+        Next
+    End If
+
+    Return selected
+End Function

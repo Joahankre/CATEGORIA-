@@ -1,0 +1,62 @@
+Passo 1
+Modelagem do Projeto
+  Nessa etapa comtempla toda a idealização das devidas necessidades, conferencias de todos os pontos de interferências quando se refere a aproveitamentos de outros projetos anteriormente iniciados. Da mesma forma aplica-se ao que é redimensionado e/ou criado de maneira pontual.
+ Os direcionamentos de arquivos de componentes pertencentes ao devido projeto é definido normalmente pelo projetista. Aqui se organiza cada pasta afim de melhorar a visibilidade e a leitura coletiva de todos os integrantes do setor. Importante que todos tenham uma visão ou leitura clara e interpretativa das pastas de arquivos.
+Passo 2
+Checklist
+ Após finalizar a modelagem confere-se cada peça pertinente de produção interna, definindo seus processos (Categoria), tipo de acabamento (Palavra Chave), chaparias preferencialmente confere-se todas as marcações de dobra na planificação, verifica-se as parametrizações necessárias.
+O que é item comercial ou mesmo que não seja, e que tem cadastro ativo coloca-se o código ativo (Centro de Custo).
+Pode ser definido nessa etapa a definição i-Properties do (Assunto) de cada peça: ficando
+=<part number>
+ Confere-se toda a lista de peças do projeto (geral).
+  - Classificação dos Itens (Normal / Comercial / Fantasma etc.)
+  - Organiza-se a Sequencia dos Itens Compostos no Projeto, agora essa sequência é bem relativa a cada projeto desenvolvido. Isso será refletido no detalhamento.
+ - Quanto as informações que aparecerão no selo na folha de detalhamento, algumas delas se replicam para todas as peças que serão detalhadas (Destacadas em Vermelho).
+ 
+ 
+ - Importante: conferir a data efetiva que aparecerá no detalhamento
+ - Nota: a cada ocorrência pertinente dentro do projeto a atualização de física (peso) se perde.
+Deve sempre confirmar e/ou atualizar a física para aparecer no detalhamento.
+
+Passo 3
+Detalhamento do Projeto
+Após finalizado o checklist o projeto está pronto para detalhar.
+ - Quanto a responsabilidade técnica baseia-se na visão e preferência do projetista.
+ - Na lista de peças das folhas de montagem é de suma importância que as informações de cada item contido sejam claras para o setor de produção e montagem. Tanto quanto a hierarquia organizacional dos itens em cada montagem.
+
+Tipos de Acabamento Padrão:
+•	Jateado
+•	Escovado
+•	Treme-treme
+•	Polido
+•	Usinado
+•	Decapado
+•	Pintado
+•	Natural
+•	Galvanizado a Frio
+•	Natural / Decapado
+•	Natural / Usinado
+•	N/A
+
+
+
+
+Categorias Padrão:
+•	00 - Estoque
+•	27 - Corte Laser CH
+•	47 - Corte Laser TB
+•	30 - Serra Fita
+•	33 - Usinagem Interna (Torno & Fresa)
+•	28 – Dobra
+•	38 - Elétrica / Automação
+•	29 - Montagem / Solda
+•	32 - Montagem Final
+•	42 - Usinagem Externa – Polímeros
+•	43 - Usinagem Externa – Alumínio
+•	44 - Usinagem Externa – Policarbonato
+•	45 - Usinagem Externa – Eletrofusão
+•	46 - Usinagem Externa – Inox
+
+
+
+

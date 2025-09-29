@@ -1,0 +1,162 @@
+Imports Inventor
+Imports System.Runtime.InteropServices
+
+Public Class FormEditarIProperties
+    Private paths As List(Of String)
+
+    ' Construtor
+    Public Sub New(caminhos As List(Of String))
+        InitializeComponent()
+        Me.paths = caminhos
+    End Sub
+
+    ' Carregar o formulário
+    Private Sub FormEditarIProperties_Load(sender As Object, e As EventArgs) Handles MyBase.Load
+        txtTitulo.Text = ""
+        txtAutor.Text = ""
+        txtResponsavel.Text = ""
+        txtEmpresa.Text = ""
+        txtProjetista.Text = ""
+        txtEngenheiro.Text = ""
+        txtFornecedor.Text = ""
+        txtWebLink.Text = ""
+        dtpDataCriacao.Value = DateTime.Today
+
+        ' Assunto: placeholder
+        txtAssunto.Text = "=<Part Number>"
+        txtAssunto.ForeColor = System.Drawing.Color.Gray
+    End Sub
+
+    ' Entrar no campo Assunto
+    Private Sub txtAssunto_Enter(sender As Object, e As EventArgs) Handles txtAssunto.Enter
+        If txtAssunto.Text = "=<Part Number>" Then
+            txtAssunto.Text = ""
+            txtAssunto.ForeColor = System.Drawing.SystemColors.WindowText
+        End If
+    End Sub
+
+    ' Sair do campo Assunto
+    Private Sub txtAssunto_Leave(sender As Object, e As EventArgs) Handles txtAssunto.Leave
+        If String.IsNullOrWhiteSpace(txtAssunto.Text) Then
+            txtAssunto.Text = "=<Part Number>"
+            txtAssunto.ForeColor = System.Drawing.Color.Gray
+        End If
+    End Sub
+
+    ' Botão Aplicar
+    Private Sub btnAplicar_Click(sender As Object, e As EventArgs) Handles btnAplicar.Click
+        Dim titulo As String = txtTitulo.Text.Trim()
+        Dim autor As String = txtAutor.Text.Trim()
+        Dim responsavel As String = txtResponsavel.Text.Trim()
+        Dim empresa As String = txtEmpresa.Text.Trim()
+        Dim projetista As String = txtProjetista.Text.Trim()
+        Dim engenheiro As String = txtEngenheiro.Text.Trim()
+        Dim fornecedor As String = txtFornecedor.Text.Trim()
+        Dim webLink As String = txtWebLink.Text.Trim()
+        Dim dataCriacao As Date = dtpDataCriacao.Value
+
+        ' Verifica se há algo preenchido
+        If titulo = "" AndAlso autor = "" AndAlso responsavel = "" AndAlso
+           empresa = "" AndAlso projetista = "" AndAlso engenheiro = "" AndAlso
+           fornecedor = "" AndAlso webLink = "" AndAlso txtAssunto.Text.Trim() = "=<Part Number>" Then
+
+            MessageBox.Show("Nenhuma propriedade foi preenchida para editar.", "Aviso", MessageBoxButtons.OK, MessageBoxIcon.Warning)
+            Return
+        End If
+
+        Dim sucesso As Integer = 0
+        Dim falhas As Integer = 0
+
+        Dim invApp As Inventor.Application = Nothing
+        Try
+            invApp = CType(Marshal.GetActiveObject("Inventor.Application"), Inventor.Application)
+        Catch
+            MessageBox.Show("O Autodesk Inventor precisa estar em execução.", "Erro", MessageBoxButtons.OK, MessageBoxIcon.Error)
+            Return
+        End Try
+
+        For Each caminho As String In paths
+            Try
+                Dim doc As Document = invApp.Documents.Open(caminho, True)
+
+                ' Obtem Part Number
+                Dim partNumber As String = ""
+                Try
+                    partNumber = doc.PropertySets.Item("Design Tracking Properties").Item("Part Number").Value.ToString()
+                Catch ex As Exception
+                    Debug.WriteLine("[AVISO] Part Number não encontrado: " & ex.Message)
+                End Try
+
+                ' Se o campo Assunto ainda estiver com =<Part Number>, usa o valor real
+                Dim assuntoFinal As String = txtAssunto.Text.Trim()
+                If assuntoFinal = "=<Part Number>" Then
+                    assuntoFinal = partNumber
+                End If
+
+                ' Atualiza propriedades
+                AtualizarPropriedadesDoc(doc, dataCriacao, titulo, autor, assuntoFinal,
+                                         responsavel, empresa, projetista, engenheiro, fornecedor, webLink)
+
+                doc.Save()
+                doc.Close(True)
+                sucesso += 1
+
+            Catch ex As Exception
+                falhas += 1
+                Debug.WriteLine("[ERRO] Falha ao processar " & caminho & ": " & ex.Message)
+            End Try
+        Next
+
+        MessageBox.Show("Atualização concluída:" & vbCrLf &
+                        "Sucesso: " & sucesso & vbCrLf &
+                        "Falhas: " & falhas,
+                        "Resultado", MessageBoxButtons.OK, MessageBoxIcon.Information)
+
+        Me.Close()
+    End Sub
+
+    ' Atualiza propriedades de um documento
+    Private Sub AtualizarPropriedadesDoc(doc As Document, dataCriacao As Date,
+                                         titulo As String, autor As String, assunto As String,
+                                         responsavel As String, empresa As String,
+                                         projetista As String, engenheiro As String,
+                                         fornecedor As String, webLink As String)
+
+        Dim summaryProps = doc.PropertySets.Item("Inventor Summary Information")
+        Dim docSummaryProps = doc.PropertySets.Item("Inventor Document Summary Information")
+        Dim designProps = doc.PropertySets.Item("Design Tracking Properties")
+
+        If titulo <> "" Then SetOrAddProperty(summaryProps, "Title", titulo)
+        If autor <> "" Then SetOrAddProperty(summaryProps, "Author", autor)
+        If assunto <> "" Then SetOrAddProperty(summaryProps, "Subject", assunto)
+
+        If responsavel <> "" Then SetOrAddProperty(docSummaryProps, "Manager", responsavel)
+        If empresa <> "" Then SetOrAddProperty(docSummaryProps, "Company", empresa)
+
+        If projetista <> "" Then SetOrAddProperty(designProps, "Designer", projetista)
+        If engenheiro <> "" Then SetOrAddProperty(designProps, "Engineer", engenheiro)
+        If fornecedor <> "" Then SetOrAddProperty(designProps, "Vendor", fornecedor)
+        If webLink <> "" Then SetOrAddProperty(designProps, "Catalog Web Link", webLink)
+
+        SetOrAddProperty(designProps, "Creation Time", dataCriacao)
+    End Sub
+
+    ' Cria ou atualiza propriedade
+    Private Sub SetOrAddProperty(propertySet As Inventor.PropertySet, propName As String, propValue As Object)
+        Try
+            propertySet.Item(propName).Value = propValue
+        Catch ex As Exception
+            Try
+                propertySet.Add(propValue, propName)
+                Debug.WriteLine("[INFO] Propriedade '" & propName & "' adicionada com valor: " & propValue)
+            Catch innerEx As Exception
+                Debug.WriteLine("[ERRO] Não foi possível adicionar propriedade '" & propName & "': " & innerEx.Message)
+            End Try
+        End Try
+    End Sub
+
+    ' Botão Cancelar
+    Private Sub btnCancelar_Click(sender As Object, e As EventArgs) Handles btnCancelar.Click
+        Me.Close()
+    End Sub
+End Class
